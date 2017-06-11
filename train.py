@@ -25,7 +25,7 @@ def train_cnn():
         'filter_sizes': '3,4,5',
         'embedding_dim': 50,
         'l2_reg_lambda': 0.0,
-        'evaluate_every': 50,
+        'evaluate_every': 10,
         'dropout_keep_prob': 0.5
     }
 
@@ -79,7 +79,7 @@ def train_cnn():
             checkpoint_prefix = os.path.join(checkpoint_dir, "model")
             if not os.path.exists(checkpoint_dir):
                 os.makedirs(checkpoint_dir)
-            saver = tf.train.Saver(tf.all_variables())
+            saver = tf.train.Saver(tf.global_variables())
 
             # One training step: train the model with one batch
             def train_step(x_batch, y_batch):
@@ -87,18 +87,25 @@ def train_cnn():
                     cnn.input_x: x_batch,
                     cnn.input_y: y_batch,
                     cnn.dropout_keep_prob: params['dropout_keep_prob']}
-                _, step, loss, acc = sess.run([train_op, global_step, cnn.loss, cnn.accuracy], feed_dict)
+                summary, _, step, loss, acc = sess.run([merged, train_op, global_step, cnn.loss, cnn.accuracy], feed_dict)
+                train_writer.add_summary(summary, step)
 
             # One evaluation step: evaluate the model with one batch
             def dev_step(x_batch, y_batch):
                 feed_dict = {cnn.input_x: x_batch, cnn.input_y: y_batch, cnn.dropout_keep_prob: 1.0}
-                step, loss, acc, num_correct = sess.run([global_step, cnn.loss, cnn.accuracy, cnn.num_correct],
+                summary, step, loss, acc, num_correct = sess.run([merged, global_step, cnn.loss, cnn.accuracy, cnn.num_correct],
                                                         feed_dict)
+                test_writer.add_summary(summary, step)
                 return num_correct
 
             # Save the word_to_id map since predict.py needs it
             vocab_processor.save(os.path.join(out_dir, "vocab.pickle"))
-            sess.run(tf.initialize_all_variables())
+
+            merged = tf.summary.merge_all()
+            train_writer = tf.summary.FileWriter('./log/train', sess.graph)
+            test_writer = tf.summary.FileWriter('./log/test')
+
+            sess.run(tf.global_variables_initializer())
 
             # Training starts here
             train_batches = data_helpers.batch_iter(list(zip(x_train, y_train)), params['batch_size'],
@@ -132,6 +139,9 @@ def train_cnn():
                         logging.critical('Saved model {} at step {}'.format(path, best_at_step))
                         logging.critical('Best accuracy {} at step {}'.format(best_accuracy, best_at_step))
 
+            train_writer.close()
+            test_writer.close()
+
             """Step 7: predict x_test (batch by batch)"""
             test_batches = data_helpers.batch_iter(list(zip(x_test, y_test)), params['batch_size'], 1)
             total_test_correct = 0
@@ -146,5 +156,7 @@ def train_cnn():
 
 
 if __name__ == '__main__':
-    # python3 train.py ./data/consumer_complaints.csv.zip ./parameters.json
+    if tf.gfile.Exists('./log'):
+        tf.gfile.DeleteRecursively('./log')
+    tf.gfile.MakeDirs('./log')
     train_cnn()

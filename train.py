@@ -15,11 +15,19 @@ logging.getLogger().setLevel(logging.INFO)
 
 def train_cnn():
     """Step 0: load sentences, labels, and training parameters"""
-    train_file = sys.argv[1]
-    x_raw, y_raw, df, labels = data_helpers.load_data_and_labels(train_file)
 
-    parameter_file = sys.argv[2]
-    params = json.loads(open(parameter_file).read())
+    x_raw, y_raw, labels = data_helpers.load_data_and_labels()
+
+    params = {
+        'num_epochs': 2,
+        'batch_size': 20,
+        'num_filters': 50,
+        'filter_sizes': '3,4,5',
+        'embedding_dim': 50,
+        'l2_reg_lambda': 0.0,
+        'evaluate_every': 50,
+        'dropout_keep_prob': 0.5
+    }
 
     """Step 1: pad each sentence to the same length and map each word to an id"""
     max_document_length = max([len(x.split(' ')) for x in x_raw])
@@ -96,6 +104,8 @@ def train_cnn():
             train_batches = data_helpers.batch_iter(list(zip(x_train, y_train)), params['batch_size'],
                                                    params['num_epochs'])
             best_accuracy, best_at_step = 0, 0
+
+            path = ''
 
             """Step 6: train the cnn model with x_train and y_train (batch by batch)"""
             for train_batch in train_batches:

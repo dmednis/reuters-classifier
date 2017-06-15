@@ -1,4 +1,5 @@
 # reuters-classifier
+The contents of this repository try to classify the Reuters-21578 dataset using a convolutional neural network.
 
 ## Running
 * Requirments: NodeJS >= 8, Python 3.5, Tensorflow, Numpy, Scipy 
